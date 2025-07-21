@@ -1,0 +1,563 @@
+#FE deployment yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: btx-ui-lb
+  namespace: btx-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lb-btx-ui
+  template:
+    metadata:
+      labels:
+        app: lb-btx-ui
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: btx-ui-lb
+          image: dkcentific/btx:btx-ui-latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+
+---
+# Service Configuration
+apiVersion: v1
+kind: Service
+metadata:
+  name: btx-ui-lb-service
+  namespace: btx-ui
+spec:
+  type: LoadBalancer
+  selector:
+    app: lb-btx-ui
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+
+---
+# (Optional) Standalone Pod - with nodeName removed
+apiVersion: v1
+kind: Pod
+metadata:
+  name: btx-ui-lb-pod
+  namespace: btx-ui
+spec:
+  restartPolicy: Always
+  imagePullSecrets:
+    - name: regcred
+  containers:
+    - name: btx-ui-lb
+      image: dkcentific/btx:btx-ui-latest
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 3000
+      resources:
+        requests:
+          cpu: "300m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+---
+
+# Service Monitoring Configuration
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: btx-ui-servicemonitor
+  namespace: btx-ui
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: lb-btx-ui
+  namespaceSelector:
+    matchNames:
+      - btx-ui
+  endpoints:
+    - port: metrics           # Name of the port in your Service, or use 'targetPort'
+      path: /metrics
+      interval: 30s
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: btx-ui
+  namespace: monitoring
+  labels:
+    release: prometheus  # Must match `podMonitorSelector.matchLabels`
+spec:
+  selector:
+    matchLabels:
+      app: lb-btx-ui         # Label from your btx-ui pods
+  namespaceSelector:
+    matchNames:
+      - btx-ui            # Namespace of the btx-ui pods
+  podMetricsEndpoints:
+    - port: metrics       # Must match the named port in the btx-ui deployment
+      path: /metrics
+      interval: 15s
+
+---
+# LoadBalancer Service for Metrics
+apiVersion: v1
+kind: Service
+metadata:
+  name: btx-ui-lb-metrics-service
+  namespace: btx-ui
+spec:
+  type: LoadBalancer
+  selector:
+    app: lb-btx-ui
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    release: prometheus  # 👈 This must match your PodMonitor label
+spec:
+  replicas: 1
+  serviceAccountName: prometheus
+  podMonitorSelector:
+    matchLabels:
+      release: prometheus  # 👈 This must match your PodMonitor label
+  serviceMonitorSelector: {}
+  resources:
+    requests:
+      memory: 400Mi
+  enableAdminAPI: true
+  alerting:
+    alertmanagers:
+      - namespace: monitoring
+        name: alertmanager-main
+        port: web
+
+###############################################################################
+#docker registry yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docker-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      containers:
+        - name: registry
+          image: registry:2
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - name: registry-storage
+              mountPath: /var/lib/registry
+      volumes:
+        - name: registry-storage
+          persistentVolumeClaim:
+            claimName: registry-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry
+spec:
+  type: NodePort
+  selector:
+    app: registry
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      nodePort: 32001
+
+#####################################################################
+#prometheus rbac yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - nodes/proxy
+      - pods
+      - services
+      - endpoints
+      - persistentvolumeclaims
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources:
+      - servicemonitors
+      - podmonitors
+      - prometheuses
+      - alertmanagers
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+
+--- 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: monitoring
+
+######################################################################
+#prometheus operator deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-operator
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: prometheus-operator
+  template:
+    metadata:
+      labels:
+        name: prometheus-operator
+    spec:
+      containers:
+        - name: prometheus-operator
+          image: quay.io/prometheus-operator/prometheus-operator:v0.73.0
+          args:
+            - --kubelet-service=kube-system/kubelet
+            - --namespaces=monitoring
+            - --prometheus-config-reloader=quay.io/prometheus-operator/prometheus-config-reloader:v0.73.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          ports:
+            - containerPort: 8080
+              name: http
+
+#######################################################################
+#prometheus deployment yml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:latest
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+          ports:
+            - containerPort: 9090
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "2Gi"
+              cpu: "600m"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/prometheus
+      volumes:
+        - name: config-volume
+          configMap:
+            name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  type: LoadBalancer
+  selector:
+    app: prometheus
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+ 
+#######################################################################
+#prometheus config yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+  labels:
+    name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: 'btx-ui-lb'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['btx-ui-lb-service.btx-ui.svc.cluster.local:3000']
+
+      - job_name: 'metrics-node-exporter'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['metrics-demo-service.monitoring.svc.cluster.local:3000']
+
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+          - role: endpoints
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+
+      - job_name: 'kubernetes-nodes'
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics
+
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: (.+):(?:\d+);(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+      - job_name: 'kubernetes-service-endpoints'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            regex: (.+):(?:\d+);(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+      - job_name: 'kube-state-metrics'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_namespace]
+            action: keep
+            regex: kube-state-metrics;kube-system
+
+      - job_name: 'btx-ui-metrics'
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - 'btx-ui-lb-metrics-service.btx-ui.svc.cluster.local:3000'
+
+#################################################################################
+#grafana deployment yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "500m"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/grafana/provisioning/datasources
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"        # set your desired username
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "DevOps123!"     # set your desired password
+      volumes:
+        - name: config
+          configMap:
+            name: grafana-datasources
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  type: LoadBalancer
+  selector:
+    app: grafana
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+ 
+##############################################################################
+#grafana data source yml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  prometheus-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+ 
