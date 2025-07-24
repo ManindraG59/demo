@@ -1,0 +1,816 @@
+---
+# Source: default/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: flatfile-gql-api
+  labels:
+    helm.sh/chart: default-0.1.0
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+---
+# Source: default/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flatfile-gql-api
+  labels:
+    helm.sh/chart: default-0.1.0
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    secret.reloader.stakater.com/reload: "flatfile-api-secret-key"
+spec:
+  
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flatfile-gql-api
+      app.kubernetes.io/instance: flatfile-gql-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: flatfile-gql-api
+        app.kubernetes.io/instance: flatfile-gql-api
+        azure.workload.identity/use: "false"
+        
+    spec:
+      imagePullSecrets:
+        - name: artifactory-creds
+      serviceAccountName: default-sa
+      securityContext:
+        null
+      containers:
+        - name: flatfile-gql-api
+          securityContext:
+            null
+          image: "masterysys.jfrog.io/mastery-docker-read/flatfile-gql-api-intl:0.0.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+          - name: IMAGE_TAG
+            value: ""
+          - name: SERVICE_NAME
+            value: "flatfile-gql-api"
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: TENANT
+            value: "InternalV2"
+          - name: HEALTH_CHECK_TIMEOUT
+            value: "5000"
+          - name: LOG_LEVEL
+            value: "info"
+          - name: PORT
+            value: "3000"
+          - name: NODE_ENV
+            value: "production"
+          - name: NEW_RELIC_APP_NAME
+            value: "flatfile-gql-api (mm100-dev)"
+          - name: NEW_RELIC_LABELS
+            value: "Customer:Mastery;Environment:Dev"
+          - name: NEW_RELIC_ENABLED
+            value: "true"
+          - name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
+            value: "true"
+          - name: NEW_RELIC_LOG_ENABLED
+            value: "true"
+          - name: NEW_RELIC_APPLICATION_LOGGING_LOCAL_DECORATING_ENABLED
+            value: "true"
+          - name: NEW_RELIC_ALLOW_ALL_HEADERS
+            value: "false"
+          - name: NEW_RELIC_ATTRIBUTES_EXCLUDE
+            value: "req.headers.*"
+          - name: NEW_RELIC_ATTRIBUTES_ENABLED
+            value: "true"
+          - name: GRAPHQL_ENDPOINT
+            value: "http://federation.mm100-dev-federation.svc.cluster.local:80"
+          - name: KEYCLOAK_CLIENT_ID
+            value: "dev.mm100.mastermindtms.com-data-upload"
+          - name: KEYCLOAK_AUDIENCE
+            value: "https://dev.mm100.mastermindtms.com/"
+          - name: KEYCLOAK_SERVER_ENDPOINT
+            value: "https://id.mm100nonprod.mastermindtms.com/auth/realms/dev.mm100.mastermindtms.com/protocol/openid-connect/token"
+          - name: KEYCLOAK_TOKEN_ENDPOINT
+            value: "https://id.mm100nonprod.mastermindtms.com/auth/realms/dev.mm100.mastermindtms.com/protocol/openid-connect/token"
+          - name: KAFKA_CLIENT_BROKERS
+            value: "pkc-x7x5z.centralus.azure.confluent.cloud:9092"
+          - name: KAFKA_BROKERS
+            value: "pkc-x7x5z.centralus.azure.confluent.cloud:9092"
+          - name: MASTERY_AUTO_BROKERS
+            value: "pkc-x7x5z.centralus.azure.confluent.cloud:9092"
+          - name: MASTERY_KAFKA_SCHEMA_REGISTRY
+            value: "http://mastery-schemaregistry.mm100-dev-kafka.svc.cluster.local:80"
+          - name: MASTERY_AUTO_USE_SASL
+            value: "true"
+          - name: MASTERY_AUTO_SCHEMA_REGISTRY_URL
+            value: "http://mastery-schemaregistry.mm100-dev-kafka.svc.cluster.local:80"
+          - name: MASTERY_AUTO_CLIENT_ID
+            value: "flatfile-services-producer"
+          - name: MASTERY_AUTO_GROUP_ID
+            value: "flatfile-services"
+          - name: FLATFILE_GRAPHQL_ENDPOINT
+            value: "https://api.us.flatfile.io/graphql"
+          - name: FLATFILE_TOKEN_ENDPOINT
+            value: "https://api.us.flatfile.io/auth/access-key/exchange"
+          - name: MINION_ENDPOINT
+            value: "http://minion-api.mm100-dev-minion.svc.cluster.local/graphql"
+          - name: TYPEORM_DATABASE
+            value: "flat_file_uploads"
+          - name: TYPEORM_CONNECTION
+            value: "mongodb"
+          - name: TYPEORM_CONNECTION_TIMEOUT_MS
+            value: "60000"
+          - name: TYPEORM_SOCKET_TIMEOUT_MS
+            value: "60000"
+          - name: TYPEORM_SSL
+            value: "true"
+          - name: TYPEORM_MONGODB_TTL_SECONDS
+            value: "86400"
+          - name: SUBSCRIPTION_API_ENDPOINT
+            value: "http://subscription-api.mm100-dev-subscription-api.svc.cluster.local:4000/graphql"
+          - name: AUTH_DISABLED
+            value: "false"
+          - name: KAFKA_CONSUMER_NAME
+            value: "flatfile-services-consumer"
+          - name: KAFKA_PRODUCER_NAME
+            value: "flatfile-services-producer"
+          - name: DOCUMENT_TYPES
+            value: "[\"CostQuote\",\"Driver\",\"Trailer\",\"Power\",\"Contact\",\"DriverPayRate\",\"CoreLoad\"]"
+          - name: FLAT_FILE_CONFIGS
+            value: "{\"Contact\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.contact.webhook.evt.v0\",\"hasValidations\":true},\"CoreLoad\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.load.webhook.evt.v0\",\"hasValidations\":false},\"CostLine\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.cost-line.webhook.evt.v0\",\"hasValidations\":false},\"CostQuote\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.costquote.webhook.evt.v0\",\"hasValidations\":true},\"Driver\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.driver.webhook.evt.v0\",\"hasValidations\":true},\"DriverPayRate\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.driver-pay-rate-table.webhook.evt.v0\",\"hasValidations\":false},\"Power\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.power.webhook.evt.v0\",\"hasValidations\":true},\"RateLine\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.rate-line.webhook.evt.v0\",\"hasValidations\":false},\"Trailer\":{\"databaseName\":\"flat_file_uploads\",\"flatFileEventTopicName\":\"pvt.flatfile.trailer.webhook.evt.v0\",\"hasValidations\":true}}"
+          - name: FLATFILE_RECORDS_COUNT
+            value: "1000"
+          - name: FILTER_ONLY_VALID
+            value: "true"
+          - name: CORE_LOAD_WEBHOOK_TOPIC_NAME
+            value: "pvt.flatfile.load.webhook.evt.v0"
+          - name: DRIVER_PAY_RATE_WEBHOOK_TOPIC_NAME
+            value: "pvt.flatfile.driver-pay-rate-table.webhook.evt.v0"
+          - name: RATE_LINE_WEBHOOK_TOPIC_NAME
+            value: "pvt.flatfile.rate-line.webhook.evt.v0"
+          - name: COST_LINE_WEBHOOK_TOPIC_NAME
+            value: "pvt.flatfile.cost-line.webhook.evt.v0"
+          - name: NEW_RELIC_LICENSE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: newrelic-license-key
+                key: newrelic-license-key
+          - name: TYPEORM_URL
+            valueFrom:
+              secretKeyRef:
+                name: cosmos-db-string
+                key: cosmos-db-string
+          - name: MASTERY_AUTO_SASL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: MASTERY_AUTO_SASL_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: MASTERY_AUTO_SCHEMA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: confluent-schema-api-secret
+                key: confluent-schema-api-secret
+          - name: MASTERY_AUTO_SCHEMA_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: confluent-schema-api-key
+                key: confluent-schema-api-key
+          - name: FLATFILE_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: flatfile-access-key-id
+                key: flatfile-access-key-id
+          - name: FLATFILE_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: flatfile-secret-access-key
+                key: flatfile-secret-access-key
+          - name: KEYCLOAK_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: flatfile-services-keycloak-client-secret
+                key: flatfile-services-keycloak-client-secret
+          - name: FLATFILE_API_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: flatfile-api-secret-key
+                key: flatfile-api-secret-key
+          resources:
+            requests:
+              memory: 512Mi
+---
+# Source: default/templates/ingress-internal.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flatfile-gql-api-internal
+  labels:
+    ingress_exposure: internal
+    helm.sh/chart: default-0.1.0
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx-internal
+  rules:
+    - host: "flatfile-services.dev.mm100.mastermindtms.com"
+      http:
+        paths:
+          - path: "/graphql"
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: flatfile-gql-api
+                port: 
+                  number: 3000
+---
+# Source: default/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flatfile-gql-api
+  labels:
+    helm.sh/chart: default-0.1.0
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "flatfile-services.dev.mm100.mastermindtms.com"
+      http:
+        paths:
+          - path: "/graphql"
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: flatfile-gql-api
+                port: 
+                  number: 3000
+---
+# Source: default/templates/apollo-schema-publish-custom.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: 
+  name: flatfile-gql-api-apollo-schema-publish
+  labels:
+    helm.sh/chart: default-0.1.0
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ttlSecondsAfterFinished: 2628000 # Removes jobs after 30 days
+  template:
+    spec:
+      imagePullSecrets:
+        - name: artifactory-creds
+      containers:
+      - name: "flatfile-gql-api"
+        imagePullPolicy: IfNotPresent
+        image: "masterysys.jfrog.io/mastery-docker-read/flatfile-gql-api-intl:"
+        command: [ "/bin/sh" ]
+        args: [ "-c", "rover subgraph publish mastermind@mm100dev --schema apps/gql-api/src/schema.gql --name FlatfileServices --routing-url http://flatfile-gql-api.mm100-dev-.svc.cluster.local:3000/graphql --client-timeout=90" ] 
+        env:
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: APOLLO_KEY
+            valueFrom:
+              secretKeyRef:
+                name: apollo-federation-key
+                key: apollo-federation-key
+      restartPolicy: Never
+  backoffLimit: 4
+---
+# Source: default/templates/kafka-sasl-topic-publish.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: 
+  name: flatfile-gql-api-kafka-topic-publish
+  labels:
+    helm.sh/chart: default-0.1.0
+    app.kubernetes.io/name: flatfile-gql-api
+    app.kubernetes.io/instance: flatfile-gql-api
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 2628000 # Removes jobs after 30 days
+  template:
+    spec:
+      imagePullSecrets:
+        - name: artifactory-creds
+      containers:
+        - name: "flatfile-gql-api-topic-publish-0"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.costquote.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-1"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.driver.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-2"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.trailer.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-3"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.power.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-4"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.load.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-5"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.driver-pay-rate-table.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-6"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.contact.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-7"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.rate-line.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        - name: "flatfile-gql-api-topic-publish-8"
+          imagePullPolicy: IfNotPresent
+          image: "masterysys.jfrog.io/mastery-docker-read/kafka-publish-docker:481fe5db25eee55bf35a2f8d000f9b7d65e65863"
+          command: ["/bin/bash"]
+          args: [
+            "-c",
+            "./scripts/createTopic.sh -t pvt.flatfile.cost-line.webhook.evt.v0 -b pkc-x7x5z.centralus.azure.confluent.cloud:9092 -r 3 -p 12 -k $SASL_API_KEY -s $SASL_SECRET -c cleanup.policy=delete"
+          ]
+          env:
+          - name: SASL_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-key
+                key: confluent-bootstrap-api-key
+          - name: SASL_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: confluent-bootstrap-api-secret
+                key: confluent-bootstrap-api-secret
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+      restartPolicy: Never
+  backoffLimit: 4
+---
+# Source: default/templates/akv.yaml
+# Release Train AKVS
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-newrelic-license-key
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: newrelic-license-key
+      type: secret
+  output:
+    secret:
+      name: newrelic-license-key
+      dataKey: newrelic-license-key
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-cosmos-db-string
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvflatfile-mm100devvah
+    object:
+      name: cosmos-db-string
+      type: secret
+  output:
+    secret:
+      name: cosmos-db-string
+      dataKey: cosmos-db-string
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-confluent-bootstrap-api-secret
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: confluent-bootstrap-api-secret
+      type: secret
+  output:
+    secret:
+      name: confluent-bootstrap-api-secret
+      dataKey: confluent-bootstrap-api-secret
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-confluent-bootstrap-api-key
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: confluent-bootstrap-api-key
+      type: secret
+  output:
+    secret:
+      name: confluent-bootstrap-api-key
+      dataKey: confluent-bootstrap-api-key
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-confluent-schema-api-secret
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: confluent-schema-api-secret
+      type: secret
+  output:
+    secret:
+      name: confluent-schema-api-secret
+      dataKey: confluent-schema-api-secret
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-confluent-schema-api-key
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: confluent-schema-api-key
+      type: secret
+  output:
+    secret:
+      name: confluent-schema-api-key
+      dataKey: confluent-schema-api-key
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-flatfile-access-key-id
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: flatfile-access-key-id
+      type: secret
+  output:
+    secret:
+      name: flatfile-access-key-id
+      dataKey: flatfile-access-key-id
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-flatfile-secret-access-key
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvmm100dev0
+    object:
+      name: flatfile-secret-access-key
+      type: secret
+  output:
+    secret:
+      name: flatfile-secret-access-key
+      dataKey: flatfile-secret-access-key
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-flatfile-services-keycloak-client-secret
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvflatfile-mm100devvah
+    object:
+      name: flatfile-services-keycloak-client-secret
+      type: secret
+  output:
+    secret:
+      name: flatfile-services-keycloak-client-secret
+      dataKey: flatfile-services-keycloak-client-secret
+---
+# Source: default/templates/akv.yaml
+apiVersion: spv.no/v1
+kind: AzureKeyVaultSecret
+metadata:
+  name: rt-flatfile-gql-api-flatfile-api-secret-key
+  labels:
+    infinity-train/component: flatfile-gql-api
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  vault:
+    name: kvflatfile-mm100devvah
+    object:
+      name: flatfile-api-secret-key
+      type: secret
+  output:
+    secret:
+      name: flatfile-api-secret-key
+      dataKey: flatfile-api-secret-key
