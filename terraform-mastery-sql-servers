@@ -1,0 +1,993 @@
+#main.tf
+#CPU MONITOR
+resource "azurerm_monitor_metric_alert" "sqlserver_cpu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_cpu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "CPU % > ${var.average_cpu_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "cpu_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_cpu_percent
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#DATA IO
+resource "azurerm_monitor_metric_alert" "sqlserver_io" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_io"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Data IO > ${var.average_io_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "physical_data_read_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_io_percent
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#DataSpaceUsage
+resource "azurerm_monitor_metric_alert" "sqlserver_space_usage" {
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_data_space"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Data Space Usage % >= ${var.space_usage_percent} on ${var.customer}-${var.tenant}"
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  severity                 = 0
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "storage_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThanOrEqual"
+    threshold        = var.space_usage_percent
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#DataSpaceUsage 90%
+resource "azurerm_monitor_metric_alert" "sqlserver_space_usage_90" {
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_data_space_90"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Data Space Usage % >= ${var.space_usage_percent_90} on ${var.customer}-${var.tenant}"
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  severity                 = 0
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "storage_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThanOrEqual"
+    threshold        = var.space_usage_percent_90
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Availability
+resource "azurerm_monitor_metric_alert" "sqlserver_availability" {
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_availability"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Availability <= ${var.min_availability} on ${var.customer}-${var.tenant}"
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  severity                 = 0
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "availability"
+    aggregation      = "Minimum"
+    operator         = "LessThanOrEqual"
+    threshold        = var.min_availability
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Session Percentage
+resource "azurerm_monitor_metric_alert" "sqlserver_session_percentage" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_sessions"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Session % > ${var.session_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "sessions_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.session_percent
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+/*
+#Deadlocks
+resource "azurerm_monitor_metric_alert" "sqlserver_deadlock_count" {
+  count               = var.azure_alerting ? 1 : 0
+  name                = join("-", [var.customer, var.tenant, "sqlserver_deadlocks"])
+  resource_group_name = var.resource_group
+  scopes              = values(var.alert_scope)
+  description         = "Deadlock count > ${var.deadlock_count} on ${var.customer}-${var.tenant}"
+  severity            = 0
+  frequency           = "PT15M"
+  window_size         = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "deadlock"
+    aggregation      = "Count"
+    operator         = "GreaterThan"
+    threshold        = var.deadlock_count
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+*/
+#ElasticPool DTU MONITOR
+resource "azurerm_monitor_metric_alert" "elasticpool_dtu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_dtu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "DTU % > ${var.average_dtu_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/elasticPools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "microsoft.sql/servers/elasticpools"
+    metric_name      = "dtu_consumption_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_dtu_percent
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#ElastiPool IO MONITOR
+resource "azurerm_monitor_metric_alert" "elasticpool_io" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_io"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "Elasticpool_IO % > ${var.average_elasticpool_io_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/elasticPools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "microsoft.sql/servers/elasticpools"
+    metric_name      = "physical_data_read_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_elasticpool_io_percent
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#ElasticPool DataSpaceUsage MONITOR
+resource "azurerm_monitor_metric_alert" "elasticpool_data_space" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_data_space"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "Elasticpool_Data_Space Usage > ${var.elasticpool_data_space} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/elasticPools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "microsoft.sql/servers/elasticpools"
+    metric_name      = "storage_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.elasticpool_data_space
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+
+#ElasticPool Session MONITOR
+resource "azurerm_monitor_metric_alert" "elasticpool_session_percent" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_session_percent"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "Elasticpool_Session % > ${var.elasticpool_session_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/elasticPools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "microsoft.sql/servers/elasticpools"
+    metric_name      = "sessions_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.elasticpool_session_percent
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#ElasticPool WorkersPercentage MONITOR
+resource "azurerm_monitor_metric_alert" "elasticpool_workerspercentage" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_workerspercentage"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "workerspercentage % > ${var.max_workerspercentage} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/elasticPools"
+  target_resource_location = var.location
+  frequency                = "PT1M"
+  window_size              = "PT5M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "microsoft.sql/servers/elasticpools"
+    metric_name      = "workers_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThanOrEqual"
+    threshold        = var.max_workerspercentage
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#ElasticPool CPU MONITOR
+resource "azurerm_monitor_metric_alert" "elasticpool_cpu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_cpu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "DTU % > ${var.average_elasticpool_cpu_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/elasticPools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "microsoft.sql/servers/elasticpools"
+    metric_name      = "cpu_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_elasticpool_cpu_percent
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+
+#sqlserver Infra Created or Updated
+resource "azurerm_monitor_activity_log_alert" "sqlserver_infra_change" {
+  count               = var.azure_alerting ? 1 : 0
+  name                = join("-", [var.customer, var.tenant, "sqlserver_infra_change"])
+  resource_group_name = var.resource_group
+  scopes              = values(var.alert_scope)
+  description         = "sqlserver_infra_change on ${var.customer}-${var.tenant}"
+  location            = "global"
+  enabled             = "true"
+  criteria {
+    #resource_id    = azurerm_storage_account.to_monitor.id
+    operation_name = "Microsoft.Sql/servers/write"
+    category       = "Administrative"
+    #level           = "informational"
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Sqlserver Infra Deleted
+resource "azurerm_monitor_activity_log_alert" "sqlserver_infra_deleted" {
+  count               = var.azure_alerting ? 1 : 0
+  name                = join("-", [var.customer, var.tenant, "sqlserver_infra_deleted"])
+  resource_group_name = var.resource_group
+  scopes              = values(var.alert_scope)
+  description         = "sqlserver_infra_deleted on ${var.customer}-${var.tenant}"
+  location            = "global"
+  enabled             = "true"
+  criteria {
+    #resource_id    = azurerm_storage_account.to_monitor.id
+    operation_name = "Microsoft.Sql/servers/delete"
+    category       = "Administrative"
+    #level           = "informational"
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Sqlserver PrivateEndpoint Connections Approval
+resource "azurerm_monitor_activity_log_alert" "sqlserver_privateendpoint_approval" {
+  count               = var.azure_alerting ? 1 : 0
+  name                = join("-", [var.customer, var.tenant, "sqlserver_privateendpoint_approval"])
+  resource_group_name = var.resource_group
+  scopes              = values(var.alert_scope)
+  description         = "sqlserver_infra_deleted on ${var.customer}-${var.tenant}"
+  location            = "global"
+  enabled             = "true"
+  criteria {
+    #resource_id    = azurerm_storage_account.to_monitor.id
+    operation_name = "Microsoft.Sql/servers/privateEndpointConnectionsApproval/action"
+    category       = "Administrative"
+    #level           = "informational"
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Dynamic CPU MONITOR
+resource "azurerm_monitor_metric_alert" "sqlserver_dynamic_cpu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_dynamic_cpu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Dynamic CPU on ${var.customer}-${var.tenant}"
+  severity                 = 3
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  dynamic_criteria {
+    metric_namespace  = "Microsoft.Sql/servers/databases"
+    metric_name       = "cpu_percent"
+    aggregation       = "Average"
+    operator          = "GreaterThan"
+    alert_sensitivity = "Low"
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Dynamic DATA IO
+resource "azurerm_monitor_metric_alert" "sqlserver_dynamic_io" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_dynamic_io"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Dynamic Data IO on ${var.customer}-${var.tenant}"
+  severity                 = 3
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  dynamic_criteria {
+    metric_namespace  = "Microsoft.Sql/servers/databases"
+    metric_name       = "physical_data_read_percent"
+    aggregation       = "Average"
+    operator          = "GreaterThan"
+    alert_sensitivity = "Low"
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Dynamic DTU
+resource "azurerm_monitor_metric_alert" "sqlserver_dynamic_dtu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_dynamic_dtu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "Dynamic DTU on ${var.customer}-${var.tenant}"
+  severity                 = 3
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  dynamic_criteria {
+    metric_namespace  = "Microsoft.Sql/servers/databases"
+    metric_name       = "dtu_consumption_percent"
+    aggregation       = "Average"
+    operator          = "GreaterThan"
+    alert_sensitivity = "Low"
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Dynamic eDTU
+resource "azurerm_monitor_metric_alert" "elasticpool_dynamic_edtu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_dynamic_edtu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "Dynamic eDTU on ${var.customer}-${var.tenant}"
+  severity                 = 3
+  target_resource_type     = "Microsoft.sql/servers/elasticpools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  dynamic_criteria {
+    metric_namespace  = "Microsoft.sql/servers/elasticpools"
+    metric_name       = "eDTU_used"
+    aggregation       = "Average"
+    operator          = "GreaterThan"
+    alert_sensitivity = "Low"
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Dynamic Worker Percent
+resource "azurerm_monitor_metric_alert" "elasticpool_dynamic_worker_percent" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "elasticpool_dynamic_worker_percent"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.elasticpool_ids)
+  description              = "Dynamic Worker Percent on ${var.customer}-${var.tenant}"
+  severity                 = 3
+  target_resource_type     = "Microsoft.sql/servers/elasticpools"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  dynamic_criteria {
+    metric_namespace  = "Microsoft.sql/servers/elasticpools"
+    metric_name       = "workers_percent"
+    aggregation       = "Average"
+    operator          = "GreaterThan"
+    alert_sensitivity = "Low"
+  }
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#SERVICE HEALTH MONITOR
+resource "azurerm_monitor_activity_log_alert" "sqlserver_service_health" {
+  name                = join("-", [var.customer, var.tenant, "sqlserver-service-health"])
+  resource_group_name = var.resource_group
+  scopes              = [format("/subscriptions/%s", var.subscription_id)]
+  description         = "service quality degraded on ${var.customer}-${var.tenant}"
+  location            = "global"
+  criteria {
+    category = "ServiceHealth"
+    level    = "Warning"
+    service_health {
+      events    = ["Maintenance", "ActionRequired"]
+      locations = [var.location == "eastus2" ? "East US 2" : "Central US"]
+      services  = ["SQL Database"]
+    }
+  }
+  action {
+    action_group_id = var.sre_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#SERVICE HEALTH MONITOR INCIDENT
+resource "azurerm_monitor_activity_log_alert" "sqlserver_service_health_incident" {
+  name                = join("-", [var.customer, var.tenant, "sqlserver-service-health-incident"])
+  resource_group_name = var.resource_group
+  scopes              = [format("/subscriptions/%s", var.subscription_id)]
+  description         = "service quality degraded on ${var.customer}-${var.tenant}"
+  location            = "global"
+  criteria {
+    category = "ServiceHealth"
+    level    = "Critical"
+    service_health {
+      events    = ["Incident"]
+      locations = [var.location == "eastus2" ? "East US 2" : "Central US"]
+      services  = ["SQL Database"]
+    }
+  }
+
+  action {
+    action_group_id = var.sre_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Failed Logins
+resource "azurerm_monitor_metric_alert" "sqlserver_failed_login" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "sqlserver_failed_login"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.alert_scope)
+  description              = "FailedLogin >= ${var.total_failed_logins} on ${var.customer}-${var.tenant}"
+  severity                 = 3
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "connection_failed_user_error"
+    aggregation      = "Total"
+    operator         = "GreaterThanOrEqual"
+    threshold        = var.total_failed_logins
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  action {
+    action_group_id = var.sre_slack_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+# Resource Health
+resource "azurerm_monitor_activity_log_alert" "sqlserver_resource_health" {
+  name                = join("-", [var.customer, var.tenant, "sqlserver-resource-health"])
+  resource_group_name = var.resource_group
+  scopes              = values(var.alert_scope)
+  description         = "resource health degraded on ${var.customer}-${var.tenant}"
+  location            = "global"
+  criteria {
+    category = "ResourceHealth"
+    level    = "Critical"
+
+    resource_health {
+      current = ["Degraded", "Unavailable"]
+      reason  = ["PlatformInitiated", "UserInitiated"]
+    }
+  }
+  action {
+    action_group_id = var.sre_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+# Suppress Non-ElasticPool alerts during re-indexing window
+resource "azurerm_monitor_alert_processing_rule_suppression" "sqlserver_reindex_suppression" {
+  count               = var.azure_alerting ? 1 : 0
+  name                = join("-", [var.customer, var.tenant, "sqlserver_reindex_suppression"])
+  resource_group_name = var.resource_group
+  enabled             = "true"
+  scopes              = [var.db_resource_group_id]
+  condition {
+    alert_rule_id {
+      operator = "Equals"
+      values = [azurerm_monitor_metric_alert.sqlserver_io[count.index].id
+        , azurerm_monitor_metric_alert.sqlserver_cpu[count.index].id
+        , azurerm_monitor_metric_alert.sqlserver_dynamic_io[count.index].id
+        , azurerm_monitor_metric_alert.sqlserver_dynamic_cpu[count.index].id
+        , azurerm_monitor_metric_alert.sqlserver_dynamic_dtu[count.index].id
+      ]
+    }
+  }
+
+  schedule {
+    effective_from  = "2023-04-01T05:00:00"
+    effective_until = "2025-04-02T10:00:00"
+    time_zone       = "UTC"
+    recurrence {
+      daily {
+        start_time = "05:00:00"
+        end_time   = "10:00:00"
+      }
+    }
+  }
+}
+
+# Suppress ElasticPool alerts during re-indexing window
+resource "azurerm_monitor_alert_processing_rule_suppression" "elasticpool_reindex_suppression" {
+  count               = var.azure_alerting ? 1 : 0
+  name                = join("-", [var.customer, var.tenant, "elasticpool_reindex_suppression"])
+  resource_group_name = var.resource_group
+  scopes              = values(var.elasticpool_ids)
+  enabled             = "true"
+  condition {
+    alert_rule_id {
+      operator = "Equals"
+      values = [azurerm_monitor_metric_alert.elasticpool_io[count.index].id
+        , azurerm_monitor_metric_alert.elasticpool_dtu[count.index].id
+        , azurerm_monitor_metric_alert.elasticpool_dynamic_edtu[count.index].id
+        , azurerm_monitor_metric_alert.elasticpool_dynamic_worker_percent[count.index].id
+      ]
+    }
+  }
+
+  schedule {
+    effective_from  = "2023-04-01T05:00:00"
+    effective_until = "2025-04-02T10:00:00"
+    time_zone       = "UTC"
+    recurrence {
+      daily {
+        start_time = "05:00:00"
+        end_time   = "10:00:00"
+      }
+    }
+  }
+}
+
+#Seer Database Availability
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_availability" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_availability"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "Availability <= ${var.min_availability} on ${var.customer}-${var.tenant}"
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  severity                 = 0
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "availability"
+    aggregation      = "Minimum"
+    operator         = "LessThanOrEqual"
+    threshold        = var.min_availability
+  }
+
+  action {
+    action_group_id = var.pagerduty_seerdb_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Seer Database CPU Monitor
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_cpu" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_cpu"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "CPU % > ${var.average_cpu_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "cpu_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_cpu_percent
+  }
+
+  action {
+    action_group_id = var.pagerduty_seerdb_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Seer DB DataSpaceUsage
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_data_space" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_data_space"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "Data Space Usage % >= ${var.space_usage_percent} on ${var.customer}-${var.tenant}"
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  severity                 = 0
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "storage_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThanOrEqual"
+    threshold        = var.space_usage_percent
+  }
+
+  action {
+    action_group_id = var.pagerduty_seerdb_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Seer DB DataSpaceUsage 90%
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_data_space_90" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_data_space_90"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "Data Space Usage % >= ${var.space_usage_percent_90} on ${var.customer}-${var.tenant}"
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  severity                 = 0
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "storage_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThanOrEqual"
+    threshold        = var.space_usage_percent_90
+  }
+
+  action {
+    action_group_id = var.pagerduty_seerdb_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Seer DB DATA IO
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_io" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_io"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "Data IO > ${var.average_io_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT15M"
+  window_size              = "PT30M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "physical_data_read_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.average_io_percent
+  }
+
+  action {
+    action_group_id = var.pagerduty_seerdb_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Seed DB Session Percentage
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_session_percentage" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_sessions"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "Session % > ${var.session_percent} on ${var.customer}-${var.tenant}"
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT5M"
+  window_size              = "PT15M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "sessions_percent"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.session_percent
+  }
+
+  action {
+    action_group_id = var.pagerduty_seerdb_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
+
+#Seer Database CPU Monitor - 90% Kill spid Alert
+resource "azurerm_monitor_metric_alert" "seer_sqlserver_cpu_kill_spid" {
+  count                    = var.azure_alerting ? 1 : 0
+  name                     = join("-", [var.customer, var.tenant, "seer-sqlserver_cpu_kill_spid"])
+  resource_group_name      = var.resource_group
+  scopes                   = values(var.seer_db_id)
+  description              = "Seer Average CPU % > 90 on ${var.customer}-${var.tenant} for 5+ minutes. Please use stored procedure usp_SQLStatus to find and kill long running transaction."
+  severity                 = 0
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = var.location
+  frequency                = "PT5M"
+  window_size              = "PT5M"
+  enabled                  = "true"
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "cpu_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = "90"
+  }
+
+  action {
+    action_group_id = var.pager_duty_action_group_id
+  }
+
+  tags = {
+    "owner"       = var.owner
+    "owner_slack" = var.owner_slack
+  }
+}
