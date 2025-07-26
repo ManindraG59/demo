@@ -1,0 +1,115 @@
+#main.tf
+resource "random_string" "random_suffix_short" {
+  count   = var.random_suffix_short ? 1 : 0
+  length  = 3
+  special = false
+  upper   = false
+}
+
+//ref: https://tfsec.dev/docs/azure/AZU020/ - ignore Key Vault firewall check
+//tfsec:ignore:AZU020
+resource "azurerm_key_vault" "vault" {
+  name                          = local.keyvault_name
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  enabled_for_disk_encryption   = var.enabled_for_disk_encryption
+  tenant_id                     = local.tenant_id
+  soft_delete_retention_days    = 7
+  purge_protection_enabled      = true
+  sku_name                      = "standard"
+  enable_rbac_authorization     = true
+  public_network_access_enabled = var.public_network_access_enabled
+
+  # Only one network_acls block is allowed.
+  # Create it if the variable is not null.
+  dynamic "network_acls" {
+    for_each = var.network_acls != null ? { this = var.network_acls } : {}
+
+    content {
+      bypass                     = network_acls.value.bypass
+      default_action             = network_acls.value.default_action
+      ip_rules                   = network_acls.value.ip_rules
+      virtual_network_subnet_ids = []
+    }
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_monitor_diagnostic_setting" "vault_audit_logs" {
+  for_each                   = var.diagnostic_settings
+  name                       = "${azurerm_key_vault.vault.name}-keyvault-audit"
+  target_resource_id         = azurerm_key_vault.vault.id
+  log_analytics_workspace_id = each.value.workspace_resource_id
+  dynamic "enabled_log" {
+    for_each = each.value.log_categories
+
+    content {
+      category = enabled_log.value
+    }
+  }
+  dynamic "metric" {
+    for_each = each.value.metric_categories
+
+    content {
+      category = metric.value
+    }
+  }
+}
+
+//ref: https://tfsec.dev/docs/azure/AZU022/ & https://tfsec.dev/docs/azure/AZU023 - do not require content type or exp date
+//tfsec:ignore:AZU022 tfsec:ignore:AZU023
+resource "azurerm_key_vault_secret" "secret" {
+  for_each = var.secrets
+
+  name         = each.key
+  value        = each.value
+  key_vault_id = azurerm_key_vault.vault.id
+
+  depends_on = [
+    azurerm_private_endpoint.vault_private_endpoint
+  ]
+}
+
+resource "azurerm_role_assignment" "vault_role_assignment" {
+  for_each             = { for role_assignment in local.flattened_role_assignments : md5("${role_assignment.role}.${role_assignment.principal_id}") => role_assignment }
+  role_definition_name = each.value.role
+  principal_id         = each.value.principal_id
+  scope                = azurerm_key_vault.vault.id
+}
+
+resource "azurerm_private_endpoint" "vault_private_endpoint" {
+  for_each            = var.private_endpoints
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  name                = each.value.name != null ? each.value.name : "pep-${local.keyvault_name}-${each.key}"
+  subnet_id           = each.value.subnet_resource_id
+  private_service_connection {
+    is_manual_connection           = false
+    name                           = "pep-${local.keyvault_name}-${each.key}"
+    private_connection_resource_id = azurerm_key_vault.vault.id
+    subresource_names              = ["vault"]
+  }
+  dynamic "private_dns_zone_group" {
+    for_each = length(each.value.private_dns_zone_resource_ids) > 0 ? ["this"] : []
+    content {
+      name                 = local.keyvault_name
+      private_dns_zone_ids = each.value.private_dns_zone_resource_ids
+    }
+  }
+  tags = var.tags
+
+  lifecycle {
+    # When the DNS zone ID changes, we need to recreate the private endpoint.
+    replace_triggered_by = [terraform_data.private_endpoint_subresources_dns_zone_ids[each.key]]
+  }
+}
+
+# These are used to track the DNS zone ID values.
+# When they change, we can cause the private endpoint to recreate.
+resource "terraform_data" "private_endpoint_subresources_dns_zone_ids" {
+  for_each = var.private_endpoints
+  input    = tolist(each.value.private_dns_zone_resource_ids)[0]
+}
+
+#################################################################################
